@@ -1,29 +1,32 @@
-//Test Case 0008: Verify that the user can not  place an order without products.
+// Test Case 0008: Verify that the user cannot place an order without products 
 import { test, expect } from '@playwright/test';
 import { LoginPage } from '../pages/LoginPage';
+import { CartPage } from '../pages/CartPage';
+import { CheckoutPage } from '../pages/CheckoutPage';
 
 const VALID_USER = 'standard_user';
 const VALID_PASSWORD = 'secret_sauce';
 
 test('Checkout with empty cart workflow', async ({ page }) => {
   const loginPage = new LoginPage(page);
+  const cartPage = new CartPage(page);
+  const checkoutPage = new CheckoutPage(page);
 
-  //Login
-  await loginPage.goto();
-  await loginPage.login(VALID_USER, VALID_PASSWORD);
-  await loginPage.assertLoginSuccessful();
+  // Login and verify
+  await loginPage.loginAndVerify(VALID_USER, VALID_PASSWORD);
 
-  //  Go to Cart
-  await page.click('.shopping_cart_link');
-  await expect(page.locator('.cart_item')).toHaveCount(0); // Cart is empty
+  // Go to Cart
+  await cartPage.goToCart();
+
+  // Verify cart is empty
+  await cartPage.assertItemsCount(0);
 
   // Click Checkout
-  await page.click('[data-test="checkout"]');
+  await cartPage.clickCheckout();
 
-  // ER User is on Checkout Step One page, but no items in the form
-  await expect(page).toHaveURL(/checkout-step-one/);
+  // Verify user is on Checkout Step One page
+  await checkoutPage.assertOnStepOnePage();
 
-  const overviewItems = page.locator('.cart_item');
-  // Verify no products
-  await expect(overviewItems).toHaveCount(0); 
+  // Verify no products in overview
+  await expect(checkoutPage.overviewItems).toHaveCount(0);
 });

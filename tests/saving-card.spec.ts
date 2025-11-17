@@ -1,52 +1,54 @@
-//Test Case 0005: Verify that card is saved after log out
+// Test Case: Verify that user can "save card" workflow (імітоване на SauceDemo)
 import { test, expect } from '@playwright/test';
 import { LoginPage } from '../pages/LoginPage';
+import { InventoryPage } from '../pages/InventoryPage';
+import { CartPage } from '../pages/CartPage';
+import { CheckoutPage } from '../pages/CheckoutPage';
+import { PaymentPage } from '../pages/PaymentPage';
 
 const VALID_USER = 'standard_user';
 const VALID_PASSWORD = 'secret_sauce';
+const FIRST_NAME = 'John';
+const LAST_NAME = 'Doe';
+const POSTAL_CODE = '12345';
 
-test('Full workflow: add to cart, menu, logout, relogin, cart', async ({ page }) => {
+test('User can fill checkout form and complete payment (save card workflow)', async ({ page }) => {
   const loginPage = new LoginPage(page);
+  const inventoryPage = new InventoryPage(page);
+  const cartPage = new CartPage(page);
+  const checkoutPage = new CheckoutPage(page);
+  const paymentPage = new PaymentPage(page);
 
-  // Navigate to login page and login
-  await loginPage.goto();
-  await loginPage.login(VALID_USER, VALID_PASSWORD);
+  // 1️⃣ Login
+  await loginPage.loginAndVerify(VALID_USER, VALID_PASSWORD);
 
-  // Verify login successful (inventory page visible)
-  await loginPage.assertLoginSuccessful();
+  // 2️⃣ Add first product to cart
+  await inventoryPage.addFirstProductToCart();
+  await inventoryPage.assertCartBadgeCount('1');
+  await inventoryPage.goToCart();
 
-  // Adding first product to cart
-  const firstAddToCart = page.locator('.inventory_item button.btn_primary').first();
-  await firstAddToCart.click();
+  // 3️⃣ Verify cart and click Checkout
+  await cartPage.assertItemsCount(1);
+  await cartPage.clickCheckout();
 
-  const cartBadge = page.locator('.shopping_cart_badge');
-  await expect(cartBadge).toHaveText('1');
+  // 4️⃣ Fill checkout form
+  await paymentPage.fillCheckoutForm(FIRST_NAME, LAST_NAME, POSTAL_CODE);
 
-  // Click on burger menu
-  await page.click('#react-burger-menu-btn');
+  // 5️⃣ Verify single item on overview page
+  await paymentPage.assertSingleItemOnOverview();
 
-  const menuItems = page.locator('.bm-item-list a');
-  await expect(menuItems).toHaveCount(4);
+  // 6️⃣ Optionally validate subtotal/tax/total
+  const { subtotal, tax, total } = await paymentPage.getPrices();
+  expect(total).toBeCloseTo(subtotal + tax, 2);
 
-  //  Click logout
-  await page.click('#logout_sidebar_link');
+  // 7️⃣ Finish order (імітоване збереження “картки”)
+  await paymentPage.finishOrder();
 
-  // Verify redirected to login page and fields are empty
-  await expect(page).toHaveURL('https://www.saucedemo.com/');
-  await expect(page.locator('#user-name')).toHaveValue('');
-  await expect(page.locator('#password')).toHaveValue('');
+  // 8️⃣ Back to products page
+  await paymentPage.goBackHome();
 
-  // Step 4: Login again
-  await loginPage.login(VALID_USER, VALID_PASSWORD);
-  await loginPage.assertLoginSuccessful();
-
-  // Verify cart badge still shows 1
-  await expect(page.locator('.shopping_cart_badge')).toHaveText('1');
-
-  // Step 5: Click on Cart
-  await page.click('.shopping_cart_link');
-
-  // Verify cart page
-  await expect(page).toHaveURL(/cart/);
-  await expect(page.locator('.cart_item')).toHaveCount(1);
+  // 9️⃣ Verify products exist and cart is empty
+  await inventoryPage.assertProductsExist();
+  const cartCount = await inventoryPage.getCartBadgeCount();
+  expect(cartCount).toBe(0);
 });

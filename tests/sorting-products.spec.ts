@@ -1,22 +1,17 @@
-//Test Case 0006: Verify sorting of products 
-import { test, expect, Locator } from '@playwright/test';
+// Test Case 0006: Verify sorting of products
+import { test, expect } from '@playwright/test';
 import { LoginPage } from '../pages/LoginPage';
+import { InventoryPage } from '../pages/InventoryPage';
 
 const VALID_USER = 'standard_user';
 const VALID_PASSWORD = 'secret_sauce';
 
 test('Inventory sorting verification', async ({ page }) => {
   const loginPage = new LoginPage(page);
+  const inventoryPage = new InventoryPage(page);
 
-  //  Login
-  await loginPage.goto();
-  await loginPage.login(VALID_USER, VALID_PASSWORD);
-  await loginPage.assertLoginSuccessful();
-
-  //  Sorting options
-  const sortingSelect = page.locator('.product_sort_container');
-  const productNames = page.locator('.inventory_item_name');
-  const productPrices = page.locator('.inventory_item_price');
+  // Login using existing LoginPage method
+  await loginPage.loginAndVerify(VALID_USER, VALID_PASSWORD);
 
   const sortingOptions = [
     { value: 'lohi', type: 'price', order: 'asc' },
@@ -26,24 +21,20 @@ test('Inventory sorting verification', async ({ page }) => {
   ];
 
   for (const option of sortingOptions) {
-    await sortingSelect.selectOption(option.value);
-
-    // Wait a bit for UI to update
-    await page.waitForTimeout(500);
+    await inventoryPage.selectSortingOption(option.value);
 
     if (option.type === 'name') {
-      const names = await productNames.allTextContents();
-      const sortedNames = [...names].sort();
-      if (option.order === 'desc') sortedNames.reverse();
-      expect(names).toEqual(sortedNames);
+      const names = await inventoryPage.getProductNames();
+      const sorted = [...names].sort((a, b) => a.localeCompare(b));
+      if (option.order === 'desc') sorted.reverse();
+      expect(names).toEqual(sorted);
     }
 
     if (option.type === 'price') {
-      const pricesText = await productPrices.allTextContents(); // ["$7.99", "$15.99"]
-      const prices = pricesText.map(p => parseFloat(p.replace('$', '')));
-      const sortedPrices = [...prices].sort((a, b) => a - b);
-      if (option.order === 'desc') sortedPrices.reverse();
-      expect(prices).toEqual(sortedPrices);
+      const prices = await inventoryPage.getProductPrices();
+      const sorted = [...prices].sort((a, b) => a - b);
+      if (option.order === 'desc') sorted.reverse();
+      expect(prices).toEqual(sorted);
     }
   }
 });
